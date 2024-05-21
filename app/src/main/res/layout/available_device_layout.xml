@@ -1,0 +1,77 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.cardview.widget.CardView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    app:cardCornerRadius="15dp"
+    android:layout_marginTop="5dp"
+    android:layout_marginStart="5dp"
+    android:layout_marginEnd="5dp"
+    android:layout_height="80dp">
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="@drawable/list_bg"/>
+
+    <androidx.constraintlayout.widget.ConstraintLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent">
+
+        <androidx.cardview.widget.CardView
+            android:id="@+id/card_bluetooth"
+            android:layout_width="50dp"
+            android:layout_height="50dp"
+            android:layout_marginStart="5dp"
+            app:cardCornerRadius="30dp"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toTopOf="parent">
+
+            <ImageView
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:padding="5dp"
+                android:src="@drawable/baseline_bluetooth_24" />
+        </androidx.cardview.widget.CardView>
+
+        <TextView
+            android:id="@+id/deviceName"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:hint="Device Name"
+            android:textColor="@color/white"
+            android:textSize="20sp"
+            android:fontFamily="serif"
+            android:textStyle="bold"
+            android:layout_marginStart="10dp"
+            app:layout_constraintStart_toEndOf="@+id/card_bluetooth"
+            app:layout_constraintTop_toTopOf="@+id/card_bluetooth" />
+
+        <TextView
+            android:id="@+id/deviceID"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:hint="Device ID"
+            android:textColor="@color/white"
+            android:textSize="20sp"
+            android:fontFamily="serif"
+            android:textStyle="bold"
+            app:layout_constraintStart_toStartOf="@+id/deviceName"
+            app:layout_constraintTop_toBottomOf="@+id/deviceName" />
+
+        <TextView
+            android:id="@+id/connectionStatus"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:hint="Status"
+            android:textColor="@color/white"
+            android:fontFamily="serif"
+            android:textSize="20sp"
+            android:textStyle="bold"
+            android:layout_marginEnd="10dp"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintTop_toTopOf="@+id/deviceID" />
+
+    </androidx.constraintlayout.widget.ConstraintLayout>
+
+</androidx.cardview.widget.CardView>

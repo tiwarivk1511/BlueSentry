@@ -1,0 +1,85 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:id="@+id/main"
+    android:background="@drawable/home_bg"
+    tools:context=".HomeActivity"
+    tools:ignore="MissingDefaultResource">
+    <ScrollView
+        android:layout_width="match_parent"
+        android:layout_height="match_parent">
+        <androidx.constraintlayout.widget.ConstraintLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content">
+
+            <TextView
+                android:id="@+id/statusTextView"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="10dp"
+                android:text="Current Status:"
+                android:fontFamily="serif"
+                android:textColor="#B2B0B0"
+                android:textStyle="bold"
+                app:layout_constraintEnd_toEndOf="parent"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintTop_toTopOf="parent" />
+
+            <androidx.cardview.widget.CardView
+                android:id="@+id/turnOn_OffButtonCard"
+                android:layout_width="200dp"
+                android:layout_height="200dp"
+                android:layout_marginStart="10dp"
+                android:layout_marginEnd="10dp"
+                android:layout_marginTop="40dp"
+                app:cardCornerRadius="100dp"
+                app:layout_constraintEnd_toEndOf="parent"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintTop_toBottomOf="@+id/statusTextView">
+
+                <View
+                    android:id="@+id/turnOn_OffButtonBG"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent" />
+
+                <ImageView
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:padding="30dp"
+                    android:src="@drawable/airpods" />
+            </androidx.cardview.widget.CardView>
+
+            <TextView
+                android:id="@+id/instructions"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="👆 \nClick to Turn On or Off"
+                android:fontFamily="serif"
+                android:textColor="#B2B0B0"
+                android:textSize="20sp"
+                android:textStyle="bold"
+                android:layout_marginTop="5dp"
+                android:textAlignment="center"
+                app:layout_constraintEnd_toEndOf="@+id/turnOn_OffButtonCard"
+                app:layout_constraintStart_toStartOf="@+id/turnOn_OffButtonCard"
+                app:layout_constraintTop_toBottomOf="@+id/turnOn_OffButtonCard" />
+
+            <androidx.recyclerview.widget.RecyclerView
+                android:id="@+id/availableDevicesRecyclerView"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="10dp"
+                android:padding="5dp"
+                tools:listitem="@layout/available_device_layout"
+                app:layout_constraintEnd_toEndOf="parent"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintTop_toBottomOf="@+id/instructions" />
+        </androidx.constraintlayout.widget.ConstraintLayout>
+
+    </ScrollView>
+
+</RelativeLayout>
