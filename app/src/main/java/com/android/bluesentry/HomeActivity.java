@@ -2,13 +2,10 @@ package com.android.bluesentry;
 
 import android.annotation.SuppressLint;
 import android.bluetooth.BluetoothAdapter;
-import android.content.BroadcastReceiver;
-import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.pm.PackageManager;
 import android.media.MediaPlayer;
-import android.os.BatteryManager;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
@@ -44,6 +41,7 @@ public class HomeActivity extends AppCompatActivity {
     private Timer mTimer;
     MediaPlayer mp;
     ChargingReceiver chargingReceiver;
+    private BluetoothConnectionReceiver bluetoothConnectionReceiver;
     private final long refreshInterval = 5000; // Refresh every 5 seconds
 
     @SuppressLint("MissingInflatedId")
@@ -111,6 +109,11 @@ public class HomeActivity extends AppCompatActivity {
             }
         });
         registerReceiver(chargingReceiver, new IntentFilter(Intent.ACTION_BATTERY_CHANGED));
+
+        // Register Bluetooth connection receiver
+        bluetoothConnectionReceiver = new BluetoothConnectionReceiver(this);
+        IntentFilter filter = new IntentFilter(BluetoothAdapter.ACTION_CONNECTION_STATE_CHANGED);
+        registerReceiver(bluetoothConnectionReceiver, filter);
     }
 
     private void checkAndRequestPermissions() {
@@ -151,8 +154,6 @@ public class HomeActivity extends AppCompatActivity {
         }
     }
 
-
-
     // Refresh the list of available devices
     private void refreshDeviceList() {
         bluetoothDeviceAdapter.refreshDevices();
@@ -169,7 +170,7 @@ public class HomeActivity extends AppCompatActivity {
         }
     }
 
-    // check the bluetooth status
+    // Check the Bluetooth status
     public void checkBluetoothStatus() {
         if (bluetoothAdapter.isEnabled()) {
             updateBluetoothStatus(true);
@@ -187,8 +188,6 @@ public class HomeActivity extends AppCompatActivity {
         }
     }
 
-
-
     // Emergency Buzzer play
     @Override
     protected void onDestroy() {
@@ -200,19 +199,17 @@ public class HomeActivity extends AppCompatActivity {
             unregisterReceiver(chargingReceiver);
         }
 
+        // Unregister the Bluetooth connection receiver to prevent memory leaks
+        if (bluetoothConnectionReceiver != null) {
+            unregisterReceiver(bluetoothConnectionReceiver);
+        }
+
         if (mp != null) {
             if (mp.isPlaying()) {
                 mp.stop();
             }
             mp.release();
             mp = null;
-        }
-        // Cancel the timer
-        mTimer.cancel();
-
-        // Unregister the charging receiver to prevent memory leaks
-        if (chargingReceiver != null) {
-            unregisterReceiver(chargingReceiver);
         }
     }
 

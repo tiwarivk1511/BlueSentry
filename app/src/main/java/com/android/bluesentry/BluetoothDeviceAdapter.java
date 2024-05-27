@@ -1,5 +1,6 @@
 package com.android.bluesentry;
 
+import android.Manifest;
 import android.annotation.SuppressLint;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
@@ -20,13 +21,13 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.annotation.NonNull;
+import androidx.annotation.RequiresApi;
 import androidx.core.app.ActivityCompat;
 import androidx.recyclerview.widget.RecyclerView;
 
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.Comparator;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
@@ -34,11 +35,10 @@ import java.util.UUID;
 public class BluetoothDeviceAdapter extends RecyclerView.Adapter<BluetoothDeviceAdapter.ViewHolder> {
 
     private static final String TAG = "BluetoothDeviceAdapter";
-    private List<BluetoothDevice> devices;
-    private Context context;
-    private BluetoothAdapter bluetoothAdapter;
-    private static final UUID MY_UUID = UUID.randomUUID(); // Replace with your app's UUID
-    private BluetoothSocket bluetoothSocket;
+    private final List<BluetoothDevice> devices;
+    private final Context context;
+    private final BluetoothAdapter bluetoothAdapter;
+    private static final UUID MY_UUID = UUID.fromString("00001101-0000-1000-8000-00805F9B34FB");
 
     public BluetoothDeviceAdapter(Context context) {
         this.context = context;
@@ -90,8 +90,8 @@ public class BluetoothDeviceAdapter extends RecyclerView.Adapter<BluetoothDevice
         BluetoothDevice device = devices.get(position);
         if (device != null) {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                if (ActivityCompat.checkSelfPermission(context, android.Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED) {
-                    ActivityCompat.requestPermissions((HomeActivity) context, new String[]{android.Manifest.permission.BLUETOOTH_CONNECT}, HomeActivity.REQUEST_BLUETOOTH_PERMISSIONS);
+                if (ActivityCompat.checkSelfPermission(context, Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED) {
+                    ActivityCompat.requestPermissions((HomeActivity) context, new String[]{Manifest.permission.BLUETOOTH_CONNECT}, HomeActivity.REQUEST_BLUETOOTH_PERMISSIONS);
                     return;
                 }
             }
@@ -100,7 +100,9 @@ public class BluetoothDeviceAdapter extends RecyclerView.Adapter<BluetoothDevice
             holder.deviceAddress.setText(device.getAddress());
             holder.deviceStatus.setText(getBondStateString(device.getBondState()));
 
-            holder.itemView.setOnClickListener(v -> connectToDevice(device));
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+                holder.itemView.setOnClickListener(v -> connectToDevice(device));
+            }
         }
     }
 
@@ -123,11 +125,11 @@ public class BluetoothDeviceAdapter extends RecyclerView.Adapter<BluetoothDevice
     }
 
     public void sortDevicesBySignalStrength() {
-        Collections.sort(devices, (o1, o2) -> {
-            if (ActivityCompat.checkSelfPermission(context, android.Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED) {
+        devices.sort ((o1, o2) -> {
+            if (ActivityCompat.checkSelfPermission (context, Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED) {
                 return 1;
             }
-            return o2.getBluetoothClass().getDeviceClass() - o1.getBluetoothClass().getDeviceClass();
+            return o2.getBluetoothClass ().getDeviceClass () - o1.getBluetoothClass ().getDeviceClass ();
         });
     }
 
@@ -144,6 +146,7 @@ public class BluetoothDeviceAdapter extends RecyclerView.Adapter<BluetoothDevice
         }
     }
 
+    @RequiresApi(api = Build.VERSION_CODES.S)
     private void connectToDevice(BluetoothDevice device) {
         new Thread(() -> {
             BluetoothSocket socket = null;
@@ -159,7 +162,6 @@ public class BluetoothDeviceAdapter extends RecyclerView.Adapter<BluetoothDevice
                 socket = device.createRfcommSocketToServiceRecord(MY_UUID);
                 bluetoothAdapter.cancelDiscovery();
                 socket.connect();
-                bluetoothSocket = socket;
                 showToast("Connected to " + device.getName());
                 monitorConnection(socket);
             } catch (IOException e) {
