@@ -27,7 +27,6 @@ import androidx.recyclerview.widget.RecyclerView;
 
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
@@ -38,80 +37,90 @@ public class BluetoothDeviceAdapter extends RecyclerView.Adapter<BluetoothDevice
     private final List<BluetoothDevice> devices;
     private final Context context;
     private final BluetoothAdapter bluetoothAdapter;
-    private static final UUID MY_UUID = UUID.fromString("00001101-0000-1000-8000-00805F9B34FB");
+    private static final UUID MY_UUID = UUID.fromString ("00001101-0000-1000-8000-00805F9B34FB");
 
-    public BluetoothDeviceAdapter(Context context) {
+    // Constructor
+    public BluetoothDeviceAdapter (Context context) {
         this.context = context;
-        devices = new ArrayList<>();
-        bluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
-        refreshDevices();
-
-        // Register for broadcasts when a device is discovered
-        IntentFilter filter = new IntentFilter(BluetoothDevice.ACTION_FOUND);
-        context.registerReceiver(receiver, filter);
-
-        // Register for broadcasts when discovery has finished
-        filter = new IntentFilter(BluetoothAdapter.ACTION_DISCOVERY_FINISHED);
-        context.registerReceiver(receiver, filter);
+        devices = new ArrayList<> ();
+        bluetoothAdapter = BluetoothAdapter.getDefaultAdapter ();
+        registerReceivers ();
+        refreshDevices ();
     }
 
+    // Register broadcast receivers
+    private void registerReceivers () {
+        IntentFilter filter = new IntentFilter (BluetoothDevice.ACTION_FOUND);
+        context.registerReceiver (receiver, filter);
+        filter = new IntentFilter (BluetoothAdapter.ACTION_DISCOVERY_FINISHED);
+        context.registerReceiver (receiver, filter);
+    }
+
+    // Refresh available devices and notify the adapter
     @SuppressLint("NotifyDataSetChanged")
-    public void refreshDevices() {
-        devices.clear();
+    public void refreshDevices () {
+        devices.clear ();
         if (bluetoothAdapter != null) {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                if (ActivityCompat.checkSelfPermission(context, android.Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED ||
-                        ActivityCompat.checkSelfPermission(context, android.Manifest.permission.BLUETOOTH_SCAN) != PackageManager.PERMISSION_GRANTED) {
-                    ActivityCompat.requestPermissions((HomeActivity) context, new String[]{
-                            android.Manifest.permission.BLUETOOTH_CONNECT,
-                            android.Manifest.permission.BLUETOOTH_SCAN
-                    }, HomeActivity.REQUEST_BLUETOOTH_PERMISSIONS);
-                    return;
+            if (bluetoothAdapter.isEnabled ()) {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+                    if (ActivityCompat.checkSelfPermission (context, Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED ||
+                            ActivityCompat.checkSelfPermission (context, Manifest.permission.BLUETOOTH_SCAN) != PackageManager.PERMISSION_GRANTED) {
+                        ActivityCompat.requestPermissions ((HomeActivity) context, new String[]{
+                                Manifest.permission.BLUETOOTH_CONNECT,
+                                Manifest.permission.BLUETOOTH_SCAN
+                        }, HomeActivity.REQUEST_BLUETOOTH_PERMISSIONS);
+                        return;
+                    }
                 }
+                Set<BluetoothDevice> bondedDevices = bluetoothAdapter.getBondedDevices ();
+                if (bondedDevices != null) {
+                    devices.addAll (bondedDevices);
+                }
+                bluetoothAdapter.startDiscovery ();
+            } else {
+                Intent enableBtIntent = new Intent (BluetoothAdapter.ACTION_REQUEST_ENABLE);
+                context.startActivity (enableBtIntent);
+                showToast ("Bluetooth is disabled");
             }
-            Set<BluetoothDevice> bondedDevices = bluetoothAdapter.getBondedDevices();
-            if (bondedDevices != null) {
-                devices.addAll(bondedDevices);
-            }
-            bluetoothAdapter.startDiscovery();
         }
-        notifyDataSetChanged();
+        notifyDataSetChanged ();
     }
 
     @NonNull
     @Override
-    public ViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
-        View view = LayoutInflater.from(parent.getContext()).inflate(R.layout.available_device_layout, parent, false);
-        return new ViewHolder(view);
+    public ViewHolder onCreateViewHolder (@NonNull ViewGroup parent, int viewType) {
+        View view = LayoutInflater.from (parent.getContext ()).inflate (R.layout.available_device_layout, parent, false);
+        return new ViewHolder (view);
     }
 
     @Override
-    public void onBindViewHolder(@NonNull ViewHolder holder, int position) {
-        BluetoothDevice device = devices.get(position);
+    public void onBindViewHolder (@NonNull ViewHolder holder, int position) {
+        BluetoothDevice device = devices.get (position);
         if (device != null) {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                if (ActivityCompat.checkSelfPermission(context, Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED) {
-                    ActivityCompat.requestPermissions((HomeActivity) context, new String[]{Manifest.permission.BLUETOOTH_CONNECT}, HomeActivity.REQUEST_BLUETOOTH_PERMISSIONS);
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+                if (ActivityCompat.checkSelfPermission (context, Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED) {
+                    ActivityCompat.requestPermissions ((HomeActivity) context, new String[]{Manifest.permission.BLUETOOTH_CONNECT}, HomeActivity.REQUEST_BLUETOOTH_PERMISSIONS);
                     return;
                 }
             }
-            String deviceName = device.getName();
-            holder.deviceName.setText(deviceName != null ? deviceName : "Unknown device");
-            holder.deviceAddress.setText(device.getAddress());
-            holder.deviceStatus.setText(getBondStateString(device.getBondState()));
+            String deviceName = device.getName ();
+            holder.deviceName.setText (deviceName != null ? deviceName : "Unknown device");
+            holder.deviceAddress.setText (device.getAddress ());
+            holder.deviceStatus.setText (getBondStateString (device.getBondState ()));
 
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
-                holder.itemView.setOnClickListener(v -> connectToDevice(device));
+                holder.itemView.setOnClickListener (v -> connectToDevice (device));
             }
         }
     }
 
     @Override
-    public int getItemCount() {
-        return devices.size();
+    public int getItemCount () {
+        return devices.size ();
     }
 
-    private String getBondStateString(int bondState) {
+    //Get bond state string
+    private String getBondStateString (int bondState) {
         switch (bondState) {
             case BluetoothDevice.BOND_BONDED:
                 return "Connected";
@@ -124,7 +133,8 @@ public class BluetoothDeviceAdapter extends RecyclerView.Adapter<BluetoothDevice
         }
     }
 
-    public void sortDevicesBySignalStrength() {
+    // Sort devices by signal strength
+    public void sortDevicesBySignalStrength () {
         devices.sort ((o1, o2) -> {
             if (ActivityCompat.checkSelfPermission (context, Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED) {
                 return 1;
@@ -132,6 +142,9 @@ public class BluetoothDeviceAdapter extends RecyclerView.Adapter<BluetoothDevice
             return o2.getBluetoothClass ().getDeviceClass () - o1.getBluetoothClass ().getDeviceClass ();
         });
     }
+
+
+
 
     public static class ViewHolder extends RecyclerView.ViewHolder {
         TextView deviceName;
@@ -146,16 +159,18 @@ public class BluetoothDeviceAdapter extends RecyclerView.Adapter<BluetoothDevice
         }
     }
 
-    @RequiresApi(api = Build.VERSION_CODES.S)
+    // Connect to device
+    @RequiresApi(api = Build.VERSION_CODES.UPSIDE_DOWN_CAKE)
     private void connectToDevice(BluetoothDevice device) {
+        // Connect to device
         new Thread(() -> {
             BluetoothSocket socket = null;
             try {
-                if (ActivityCompat.checkSelfPermission(context, android.Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED ||
-                        ActivityCompat.checkSelfPermission(context, android.Manifest.permission.BLUETOOTH_SCAN) != PackageManager.PERMISSION_GRANTED) {
+                if (ActivityCompat.checkSelfPermission(context, Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED ||
+                        ActivityCompat.checkSelfPermission(context, Manifest.permission.BLUETOOTH_SCAN) != PackageManager.PERMISSION_GRANTED) {
                     ActivityCompat.requestPermissions((HomeActivity) context, new String[]{
-                            android.Manifest.permission.BLUETOOTH_CONNECT,
-                            android.Manifest.permission.BLUETOOTH_SCAN
+                            Manifest.permission.BLUETOOTH_CONNECT,
+                            Manifest.permission.BLUETOOTH_SCAN
                     }, HomeActivity.REQUEST_BLUETOOTH_PERMISSIONS);
                     return;
                 }
@@ -172,14 +187,14 @@ public class BluetoothDeviceAdapter extends RecyclerView.Adapter<BluetoothDevice
         }).start();
     }
 
+    // Monitor connection
     private void monitorConnection(BluetoothSocket socket) {
+        // Check if socket is still connected
         new Thread(() -> {
             try {
                 while (socket.isConnected()) {
-                    // Keep the thread alive while the socket is connected
                     Thread.sleep(1000);
                 }
-                // If the socket gets disconnected
                 onDeviceDisconnected();
             } catch (InterruptedException e) {
                 Log.e(TAG, "Connection monitoring error: " + e.getMessage());
@@ -188,12 +203,13 @@ public class BluetoothDeviceAdapter extends RecyclerView.Adapter<BluetoothDevice
         }).start();
     }
 
+    // On device disconnected
     private void onDeviceDisconnected() {
-        // Notify the main thread to play the emergency buzzer
         Handler handler = new Handler(Looper.getMainLooper());
         handler.post(() -> ((HomeActivity) context).playEmergencyBuzzer());
     }
 
+    // Close socket
     private void closeSocket(BluetoothSocket socket) {
         if (socket != null) {
             try {
@@ -204,19 +220,23 @@ public class BluetoothDeviceAdapter extends RecyclerView.Adapter<BluetoothDevice
         }
     }
 
+    // Show toast
     private void showToast(String message) {
         new Handler(Looper.getMainLooper()).post(() -> Toast.makeText(context, message, Toast.LENGTH_SHORT).show());
     }
 
-    // The BroadcastReceiver that listens for discovered devices and updates the list
+    // Broadcast receiver
     private final BroadcastReceiver receiver = new BroadcastReceiver() {
+        @SuppressLint("NotifyDataSetChanged")
         public void onReceive(Context context, Intent intent) {
             String action = intent.getAction();
+            // When discovery finds a device
             if (BluetoothDevice.ACTION_FOUND.equals(action)) {
                 BluetoothDevice device = intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE);
-                if (ActivityCompat.checkSelfPermission(context, android.Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED) {
+                if (ActivityCompat.checkSelfPermission(context, Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED) {
                     return;
                 }
+                // Filter out bonded devices
                 if (device != null && device.getBondState() != BluetoothDevice.BOND_BONDED) {
                     devices.add(device);
                     notifyDataSetChanged();

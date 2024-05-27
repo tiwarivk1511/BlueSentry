@@ -2,6 +2,8 @@ package com.android.bluesentry;
 
 import android.annotation.SuppressLint;
 import android.bluetooth.BluetoothAdapter;
+import android.bluetooth.BluetoothDevice;
+import android.bluetooth.BluetoothSocket;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.pm.PackageManager;
@@ -9,6 +11,8 @@ import android.media.MediaPlayer;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
+import android.util.Log;
+import android.view.View;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -26,23 +30,28 @@ import androidx.core.view.WindowInsetsControllerCompat;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
+import java.io.IOException;
+import java.io.OutputStream;
 import java.util.Timer;
 import java.util.TimerTask;
+import java.util.UUID;
 
 public class HomeActivity extends AppCompatActivity {
 
     public static final int REQUEST_BLUETOOTH_PERMISSIONS = 2;
     private static final int REQUEST_ENABLE_BT = 1;
+    private static final String TAG = "HomeActivity";
+    private static final UUID MY_UUID = UUID.fromString("00001101-0000-1000-8000-00805F9B34FB");
     private BluetoothAdapter bluetoothAdapter;
-    private CardView turnOn_OffButtonCard;
-    private RecyclerView availableDevicesRecyclerView;
     private BluetoothDeviceAdapter bluetoothDeviceAdapter;
     private Handler mHandler;
     private Timer mTimer;
+    View turnOn_OffButtonBG; // Declare the variable here
+
     MediaPlayer mp;
     ChargingReceiver chargingReceiver;
     private BluetoothConnectionReceiver bluetoothConnectionReceiver;
-    private final long refreshInterval = 5000; // Refresh every 5 seconds
+    private BluetoothSocket connectedSocket;
 
     @SuppressLint("MissingInflatedId")
     @RequiresApi(api = Build.VERSION_CODES.S)
@@ -51,6 +60,9 @@ public class HomeActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         EdgeToEdge.enable(this);
         setContentView(R.layout.activity_home);
+
+        // Initialize turnOn_OffButtonBG after setContentView()
+        turnOn_OffButtonBG = findViewById(R.id.turnOn_OffButtonBG);
 
         ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.main), (v, insets) -> {
             Insets systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars());
@@ -81,19 +93,22 @@ public class HomeActivity extends AppCompatActivity {
         if (getResources().getConfiguration().orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE) {
             setContentView(R.layout.activity_home_landscape);
         }
-
-        turnOn_OffButtonCard = findViewById(R.id.turnOn_OffButtonCard);
+        CardView turnOn_OffButtonCard = findViewById(R.id.turnOn_OffButtonCard);
+        turnOn_OffButtonBG = findViewById(R.id.turnOn_OffButtonBG);
 
         turnOn_OffButtonCard.setOnClickListener(v -> {
-            toggleBluetooth();
+            boolean toggle = !bluetoothAdapter.isEnabled();
+            toggleBluetooth(toggle);
         });
 
-        availableDevicesRecyclerView = findViewById(R.id.availableDevicesRecyclerView);
+        RecyclerView availableDevicesRecyclerView = findViewById(R.id.availableDevicesRecyclerView);
         availableDevicesRecyclerView.setLayoutManager(new LinearLayoutManager(this));
         bluetoothDeviceAdapter = new BluetoothDeviceAdapter(this);
         availableDevicesRecyclerView.setAdapter(bluetoothDeviceAdapter);
 
         mTimer = new Timer();
+        // Refresh every 5 seconds
+        long refreshInterval = 5000;
         mTimer.schedule(new TimerTask() {
             @Override
             public void run() {
@@ -102,12 +117,7 @@ public class HomeActivity extends AppCompatActivity {
         }, 0, refreshInterval);
 
         // Register charging receiver
-        chargingReceiver = new ChargingReceiver(new ChargingReceiver.ChargingStatusListener() {
-            @Override
-            public void onChargingStatusChanged(boolean isCharging) {
-                updateChargingStatus(isCharging);
-            }
-        });
+        chargingReceiver = new ChargingReceiver(this::updateChargingStatus);
         registerReceiver(chargingReceiver, new IntentFilter(Intent.ACTION_BATTERY_CHANGED));
 
         // Register Bluetooth connection receiver
@@ -123,25 +133,24 @@ public class HomeActivity extends AppCompatActivity {
         }
     }
 
-    private void toggleBluetooth() {
-        if (bluetoothAdapter.isEnabled()) {
+    private void toggleBluetooth(boolean toggle) {
+        if (!toggle) {
             if (ActivityCompat.checkSelfPermission(this, android.Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED) {
                 return;
             }
-            // Turn off Bluetooth of Mobile device
+            // Disable Bluetooth and update UI
             bluetoothAdapter.disable();
-            updateBluetoothStatus(false);
+            turnOn_OffButtonBG.setBackgroundResource(R.drawable.device_bg);
             checkBluetoothStatus();
-
+            turnOffConnectedDevice();
+            Toast.makeText(this, "Bluetooth disabled", Toast.LENGTH_SHORT).show();
         } else {
             checkBluetoothStatus();
             Intent enableBtIntent = new Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE);
             startActivityForResult(enableBtIntent, REQUEST_ENABLE_BT);
-
         }
     }
 
-    // Handle the result of Bluetooth enabling
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
@@ -154,32 +163,35 @@ public class HomeActivity extends AppCompatActivity {
         }
     }
 
-    // Refresh the list of available devices
     private void refreshDeviceList() {
         bluetoothDeviceAdapter.refreshDevices();
         bluetoothDeviceAdapter.sortDevicesBySignalStrength();
     }
 
-    // Bluetooth Status
     private void updateBluetoothStatus(boolean isEnabled) {
         TextView bluetoothStatus = findViewById(R.id.statusTextView);
         if (isEnabled) {
             bluetoothStatus.setText("Bluetooth is ON");
         } else {
             bluetoothStatus.setText("Bluetooth is OFF");
+            if (ActivityCompat.checkSelfPermission(this, android.Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED) {
+                return;
+            }
+            bluetoothAdapter.disable();
         }
     }
 
-    // Check the Bluetooth status
     public void checkBluetoothStatus() {
         if (bluetoothAdapter.isEnabled()) {
             updateBluetoothStatus(true);
+
+            turnOn_OffButtonBG.setBackgroundResource(R.drawable.list_bg);
         } else {
             updateBluetoothStatus(false);
+            turnOn_OffButtonBG.setBackgroundResource(R.drawable.device_bg);
         }
     }
 
-    // Method to update UI based on charging status
     private void updateChargingStatus(boolean isCharging) {
         if (isCharging) {
             Toast.makeText(this, "Mobile is charging", Toast.LENGTH_SHORT).show();
@@ -188,18 +200,15 @@ public class HomeActivity extends AppCompatActivity {
         }
     }
 
-    // Emergency Buzzer play
     @Override
     protected void onDestroy() {
         super.onDestroy();
         mTimer.cancel();
 
-        // Unregister the charging receiver to prevent memory leaks
         if (chargingReceiver != null) {
             unregisterReceiver(chargingReceiver);
         }
 
-        // Unregister the Bluetooth connection receiver to prevent memory leaks
         if (bluetoothConnectionReceiver != null) {
             unregisterReceiver(bluetoothConnectionReceiver);
         }
@@ -219,27 +228,75 @@ public class HomeActivity extends AppCompatActivity {
         }
         mp = MediaPlayer.create(this, R.raw.emergency_buzzer);
         if (mp != null) {
-            mp.setLooping(true); // Set looping
-            mp.setVolume(1.0f, 1.0f); // Set volume
-            mp.start(); // Start playback
+            mp.setLooping(true);
+            mp.setVolume(1.0f, 1.0f);
+            mp.start();
         } else {
             Toast.makeText(this, "Error: Cannot play buzzer", Toast.LENGTH_SHORT).show();
         }
     }
 
-    // Bluetooth Permissions
     @Override
     public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
         if (requestCode == REQUEST_BLUETOOTH_PERMISSIONS) {
             if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
                 Toast.makeText(this, "Bluetooth permissions granted", Toast.LENGTH_SHORT).show();
-                // Refresh devices or start discovery again if needed
                 BluetoothDeviceAdapter adapter = new BluetoothDeviceAdapter(this);
                 adapter.refreshDevices();
             } else {
                 Toast.makeText(this, "Bluetooth permissions denied", Toast.LENGTH_SHORT).show();
             }
+        }
+    }
+
+
+    @RequiresApi(api = Build.VERSION_CODES.UPSIDE_DOWN_CAKE)
+    public void connectToDevice(BluetoothDevice device) {
+        // Start a new thread to connect to the device
+        new Thread(() -> {
+            BluetoothSocket socket = null;
+            try {
+                if (ActivityCompat.checkSelfPermission(this, android.Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED ||
+                        ActivityCompat.checkSelfPermission(this, android.Manifest.permission.BLUETOOTH_SCAN) != PackageManager.PERMISSION_GRANTED) {
+                    ActivityCompat.requestPermissions(this, new String[]{
+                            android.Manifest.permission.BLUETOOTH_CONNECT,
+                            android.Manifest.permission.BLUETOOTH_SCAN
+                    }, REQUEST_BLUETOOTH_PERMISSIONS);
+                    return;
+                }
+                socket = device.createRfcommSocketToServiceRecord(MY_UUID);
+                socket.connect();
+                connectedSocket = socket;
+                runOnUiThread(() -> Toast.makeText(this, "Connected to device", Toast.LENGTH_SHORT).show());
+            } catch (IOException e) {
+                Log.e(TAG, "Could not connect to device", e);
+                runOnUiThread(() -> Toast.makeText(this, "Failed to connect to device", Toast.LENGTH_SHORT).show());
+                try {
+                    if (socket != null) {
+                        socket.close();
+                    }
+                } catch (IOException closeException) {
+                    Log.e(TAG, "Could not close socket", closeException);
+                }
+            }
+        }).start();
+    }
+
+    public void turnOffConnectedDevice() {
+        if (connectedSocket != null && connectedSocket.isConnected()) {
+            try {
+                OutputStream outputStream = connectedSocket.getOutputStream();
+                String turnOffCommand = "TURN_OFF"; // Replace with the actual command to turn off the device
+                outputStream.write(turnOffCommand.getBytes());
+                outputStream.flush();
+                Toast.makeText(this, "Turned off connected device", Toast.LENGTH_SHORT).show();
+            } catch (IOException e) {
+                Log.e(TAG, "Failed to send turn off command", e);
+                Toast.makeText(this, "Failed to turn off device", Toast.LENGTH_SHORT).show();
+            }
+        } else {
+            Toast.makeText(this, "No connected device", Toast.LENGTH_SHORT).show();
         }
     }
 }
