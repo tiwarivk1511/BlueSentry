@@ -13,6 +13,7 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.util.Log;
 import android.view.View;
+import android.widget.ImageView;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -29,6 +30,8 @@ import androidx.core.view.WindowInsetsCompat;
 import androidx.core.view.WindowInsetsControllerCompat;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
+
+import com.google.firebase.auth.FirebaseAuth;
 
 import java.io.IOException;
 import java.io.OutputStream;
@@ -89,6 +92,16 @@ public class HomeActivity extends AppCompatActivity {
         // Check Bluetooth status
         checkBluetoothStatus();
 
+        ImageView logoutBtn = findViewById (R.id.logoutButton);
+        logoutBtn.setOnClickListener(new View.OnClickListener() {
+                                         @Override
+                                         public void onClick (View v) {
+                                             FirebaseAuth.getInstance ().signOut ();
+                                             Intent intent = new Intent (HomeActivity.this, LoginActivity.class);
+                                             startActivity (intent);
+                                             finish ();
+                                         }
+                                     });
         // Set the layout based on the device orientation
         if (getResources().getConfiguration().orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE) {
             setContentView(R.layout.activity_home_landscape);

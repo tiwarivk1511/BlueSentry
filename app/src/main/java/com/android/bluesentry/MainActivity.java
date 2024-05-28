@@ -24,7 +24,7 @@ public class MainActivity extends AppCompatActivity {
 
         // start the Home activity after 3 seconds
         new android.os.Handler ().postDelayed (() -> {
-            startActivity (new Intent (this, HomeActivity.class));
+            startActivity (new Intent (this, FirstScreen.class));
             finish ();
         }, 3000);
     }

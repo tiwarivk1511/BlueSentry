@@ -6,7 +6,7 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:id="@+id/main"
-    android:background="@drawable/home_bg"
+    android:background="@drawable/bg_login"
     tools:context=".HomeActivity">
     <ScrollView
         android:layout_width="match_parent"
@@ -22,13 +22,22 @@
                 android:layout_marginTop="10dp"
                 android:text="Current Status:"
                 android:fontFamily="serif"
-                android:textColor="#B2B0B0"
+                android:textColor="@color/white"
                 android:textSize="16sp"
                 android:textStyle="bold"
                 app:layout_constraintEnd_toEndOf="parent"
                 app:layout_constraintStart_toStartOf="parent"
                 app:layout_constraintTop_toTopOf="parent" />
 
+            <ImageView
+                android:id="@+id/logoutButton"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:layout_marginTop="10dp"
+                android:layout_marginEnd="15dp"
+                android:src="@drawable/outline_logout_24"
+                app:layout_constraintEnd_toEndOf="parent"
+                app:layout_constraintTop_toTopOf="parent" />
 
 
             <androidx.cardview.widget.CardView
@@ -61,7 +70,7 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="👆 \nClick to Turn On or Off"
-                android:textColor="#B2B0B0"
+                android:textColor="@color/white"
                 android:fontFamily="serif"
                 android:textSize="20sp"
                 android:textStyle="bold"
@@ -71,16 +80,29 @@
                 app:layout_constraintStart_toStartOf="@+id/turnOn_OffButtonCard"
                 app:layout_constraintTop_toBottomOf="@+id/turnOn_OffButtonCard" />
 
+            <TextView
+                android:id="@+id/pairedDevices"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Paired Devices"
+                android:layout_marginStart="10dp"
+                android:textStyle="bold"
+                android:textSize="18sp"
+                android:fontFamily="serif"
+                android:layout_marginTop="10dp"
+                android:textColor="@color/white"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintTop_toBottomOf="@+id/instructions" />
+
             <androidx.recyclerview.widget.RecyclerView
                 android:id="@+id/availableDevicesRecyclerView"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="10dp"
                 android:padding="5dp"
-                tools:listitem="@layout/available_device_layout"
                 app:layout_constraintEnd_toEndOf="parent"
                 app:layout_constraintStart_toStartOf="parent"
-                app:layout_constraintTop_toBottomOf="@+id/instructions" />
+                app:layout_constraintTop_toBottomOf="@+id/pairedDevices"
+                tools:listitem="@layout/available_device_layout" />
         </androidx.constraintlayout.widget.ConstraintLayout>
 
     </ScrollView>

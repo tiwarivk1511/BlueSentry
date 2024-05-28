@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "433902695112",
+    "project_id": "bluesentry-7533a",
+    "storage_bucket": "bluesentry-7533a.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:433902695112:android:1cb4fca8daebd96745abfd",
+        "android_client_info": {
+          "package_name": "com.android.bluesentry"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCyAmTteI0W1FefIUDPnEZPrrkucK1ZdTk"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

@@ -8,10 +8,10 @@
             <InsightsFilterSettings>
               <option name="connection">
                 <ConnectionSetting>
-                  <option name="appId" value="PLACEHOLDER" />
-                  <option name="mobileSdkAppId" value="" />
-                  <option name="projectId" value="" />
-                  <option name="projectNumber" value="" />
+                  <option name="appId" value="com.android.bluesentry" />
+                  <option name="mobileSdkAppId" value="1:433902695112:android:1cb4fca8daebd96745abfd" />
+                  <option name="projectId" value="bluesentry-7533a" />
+                  <option name="projectNumber" value="433902695112" />
                 </ConnectionSetting>
               </option>
               <option name="signal" value="SIGNAL_UNSPECIFIED" />
