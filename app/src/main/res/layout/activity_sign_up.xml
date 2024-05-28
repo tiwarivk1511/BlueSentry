@@ -8,6 +8,22 @@
     android:layout_height="match_parent"
     android:background="@drawable/bg_login"
     tools:context=".SignUpActivity">
+    <androidx.cardview.widget.CardView
+        android:id="@+id/backButton"
+        android:layout_width="30dp"
+        android:layout_height="30dp"
+        android:layout_marginTop="10dp"
+        android:layout_marginStart="10dp"
+        app:cardCornerRadius="20dp"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent">
+
+        <ImageView
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:padding="5dp"
+            android:src="@drawable/outline_arrow_back_ios_new_24" />
+    </androidx.cardview.widget.CardView>
 
     <ScrollView
         android:layout_width="match_parent"
@@ -20,7 +36,7 @@
 
     <androidx.cardview.widget.CardView
         android:layout_width="match_parent"
-        android:layout_height="460dp"
+        android:layout_height="wrap_content"
         android:layout_margin="5dp"
         app:cardCornerRadius="58dp"
         app:cardElevation="10dp"
@@ -52,6 +68,36 @@
                 app:layout_constraintStart_toStartOf="parent"
                 app:layout_constraintTop_toTopOf="parent" />
 
+            <ImageView
+                android:id="@+id/profileImage"
+                android:layout_width="80dp"
+                android:layout_height="80dp"
+                android:layout_marginTop="20dp"
+                android:background="@drawable/bg_login"
+                app:civ_border_color="@color/white"
+                app:civ_border_width="2dp"
+                app:layout_constraintEnd_toEndOf="parent"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintTop_toBottomOf="@+id/textView" />
+
+            <androidx.cardview.widget.CardView
+                android:id="@+id/uploadImage"
+                android:layout_width="30dp"
+                android:layout_height="30dp"
+                app:cardCornerRadius="20dp"
+                app:cardElevation="10dp"
+                android:layout_marginStart="-20dp"
+                app:layout_constraintBottom_toBottomOf="@+id/profileImage"
+                app:layout_constraintStart_toEndOf="@+id/profileImage"
+                app:layout_constraintTop_toTopOf="@+id/profileImage"
+                app:layout_constraintVertical_bias="1.0">
+                <ImageView
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:padding="5dp"
+                    android:src="@drawable/outline_file_upload_24"/>
+            </androidx.cardview.widget.CardView>
+
             <com.google.android.material.textfield.TextInputLayout
                 android:id="@+id/usernameLayout"
                 android:layout_width="match_parent"
@@ -67,7 +113,7 @@
                 app:boxCornerRadiusTopStart="10dp"
                 app:layout_constraintEnd_toEndOf="parent"
                 app:layout_constraintStart_toStartOf="parent"
-                app:layout_constraintTop_toBottomOf="@+id/textView">
+                app:layout_constraintTop_toBottomOf="@+id/profileImage">
 
                 <com.google.android.material.textfield.TextInputEditText
                     android:id="@+id/usernameInput"
@@ -244,41 +290,18 @@
                 app:layout_constraintVertical_bias="0.0" />
 
 
-
-            <TextView
-                android:id="@+id/otherLoginWays"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:fontFamily="serif"
-                android:text="------------------ or Sign up With ------------------"
+            <ProgressBar
+                android:id="@+id/progressBar"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:indeterminateTint="#9181F4"
+                android:visibility="invisible"
                 android:layout_marginTop="40dp"
-                android:textColor="@color/white"
-                android:textStyle="bold"
+                android:layout_marginBottom="20dp"
+                app:layout_constraintBottom_toBottomOf="parent"
                 app:layout_constraintEnd_toEndOf="@+id/SignupButton"
                 app:layout_constraintStart_toStartOf="@+id/SignupButton"
                 app:layout_constraintTop_toBottomOf="@+id/SignupButton" />
-
-            <com.google.android.material.button.MaterialButton
-                android:id="@+id/googleSignUpButton"
-                android:layout_width="150dp"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="20dp"
-                android:layout_marginBottom="20dp"
-                android:background="@drawable/button_google_shape"
-                android:fontFamily="serif"
-                android:text="Google"
-                android:textColor="@color/black"
-                android:textSize="15sp"
-                android:textStyle="bold"
-                app:backgroundTint="@null"
-                app:icon="@drawable/googleg_standard_color_18"
-                app:iconGravity="start"
-                app:iconPadding="3dp"
-                app:iconTint="@null"
-                app:layout_constraintBottom_toBottomOf="parent"
-                app:layout_constraintEnd_toEndOf="@+id/otherLoginWays"
-                app:layout_constraintStart_toStartOf="@+id/otherLoginWays"
-                app:layout_constraintTop_toBottomOf="@+id/otherLoginWays" />
 
         </androidx.constraintlayout.widget.ConstraintLayout>
 

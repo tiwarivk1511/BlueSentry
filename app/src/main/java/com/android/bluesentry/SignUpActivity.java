@@ -1,10 +1,13 @@
 package com.android.bluesentry;
 
 import android.content.Intent;
+import android.net.Uri;
 import android.os.Bundle;
 import android.util.Log;
+import android.view.View;
 import android.widget.Toast;
 
+import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.graphics.Insets;
@@ -12,18 +15,16 @@ import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
 
 import com.android.bluesentry.databinding.ActivitySignUpBinding;
-import com.google.android.gms.auth.api.signin.GoogleSignIn;
-import com.google.android.gms.auth.api.signin.GoogleSignInAccount;
-import com.google.android.gms.auth.api.signin.GoogleSignInClient;
-import com.google.android.gms.auth.api.signin.GoogleSignInOptions;
-import com.google.android.gms.common.api.ApiException;
-import com.google.android.gms.tasks.Task;
-import com.google.firebase.auth.AuthCredential;
+import com.google.android.gms.tasks.OnFailureListener;
+import com.google.android.gms.tasks.OnSuccessListener;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
-import com.google.firebase.auth.GoogleAuthProvider;
 import com.google.firebase.database.DatabaseReference;
 import com.google.firebase.database.FirebaseDatabase;
+import com.google.firebase.firestore.FirebaseFirestore;
+import com.google.firebase.storage.FirebaseStorage;
+import com.google.firebase.storage.StorageReference;
+import com.squareup.picasso.Picasso;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -31,7 +32,7 @@ import java.util.Map;
 public class SignUpActivity extends AppCompatActivity {
     private static final int RC_SIGN_IN = 9001;
     private static final String TAG = "SignupActivity";
-    private GoogleSignInClient mGoogleSignInClient;
+    private Uri imageUri;
     private FirebaseAuth mAuth;
     private DatabaseReference dbRef;
     private ActivitySignUpBinding binding;
@@ -50,15 +51,23 @@ public class SignUpActivity extends AppCompatActivity {
         mAuth = FirebaseAuth.getInstance();
         dbRef = FirebaseDatabase.getInstance().getReference();
 
-        GoogleSignInOptions gso = new GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
-                .requestIdToken(getString(R.string.default_web_client_id))
-                .requestEmail()
-                .build();
-        mGoogleSignInClient = GoogleSignIn.getClient(this, gso);
-
         binding.SignupButton.setOnClickListener(v -> performEmailSignup());
 
-        binding.googleSignUpButton.setOnClickListener(v -> performGoogleSignup());
+        binding.uploadImage.setOnClickListener(v -> {
+            Intent intent = new Intent();
+            intent.setType("image/*");
+            intent.setAction(Intent.ACTION_GET_CONTENT);
+            startActivityForResult(intent, 1);
+        });
+    }
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, @Nullable Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode == 1 && resultCode == RESULT_OK && data != null && data.getData() != null) {
+            imageUri = data.getData();
+            binding.profileImage.setImageURI(imageUri);
+        }
     }
 
     private void performEmailSignup() {
@@ -77,55 +86,12 @@ public class SignUpActivity extends AppCompatActivity {
                 .addOnCompleteListener(this, task -> {
                     if (task.isSuccessful()) {
                         FirebaseUser user = mAuth.getCurrentUser();
-                        saveUserToRealtimeDatabase(user, username, city, country);
-                    } else {
-                        Log.w(TAG, "createUserWithEmail:failure", task.getException());
-                        Toast.makeText(SignUpActivity.this, "Authentication failed.",
-                                Toast.LENGTH_SHORT).show();
-                    }
-                });
-    }
-
-    private void performGoogleSignup() {
-        Intent signInIntent = mGoogleSignInClient.getSignInIntent();
-        startActivityForResult(signInIntent, RC_SIGN_IN);
-    }
-
-    @Override
-    public void onActivityResult(int requestCode, int resultCode, Intent data) {
-        super.onActivityResult(requestCode, resultCode, data);
-
-        if (requestCode == RC_SIGN_IN) {
-            Task<GoogleSignInAccount> task = GoogleSignIn.getSignedInAccountFromIntent(data);
-            try {
-                GoogleSignInAccount account = task.getResult(ApiException.class);
-                firebaseAuthWithGoogle(account);
-            } catch (ApiException e) {
-                Log.w(TAG, "Google sign in failed", e);
-            }
-        }
-    }
-
-    private void firebaseAuthWithGoogle(GoogleSignInAccount acct) {
-        AuthCredential credential = GoogleAuthProvider.getCredential(acct.getIdToken(), null);
-        Log.d(TAG, "firebaseAuthWithGoogle: trying to authenticate");
-        mAuth.signInWithCredential(credential)
-                .addOnCompleteListener(this, task -> {
-                    if (task.isSuccessful()) {
-                        FirebaseUser user = mAuth.getCurrentUser();
                         if (user != null) {
-                            Log.d(TAG, "firebaseAuthWithGoogle: success, user: " + user.getDisplayName());
-                            saveUserToRealtimeDatabase(user, user.getDisplayName(), "", "", "", "", "", user.getUid());
-                            Intent intent = new Intent(SignUpActivity.this, MainActivity.class);
-                            startActivity(intent);
-                            finish();
-                        } else {
-                            Log.w(TAG, "firebaseAuthWithGoogle: success, but user is null");
+                            saveUserToRealtimeDatabase(user, username, city, country);
                         }
                     } else {
-                        Log.w(TAG, "firebaseAuthWithGoogle: failure", task.getException());
-                        Toast.makeText(SignUpActivity.this, "Authentication failed.",
-                                Toast.LENGTH_SHORT).show();
+                        Log.w(TAG, "createUserWithEmail:failure", task.getException());
+                        Toast.makeText(SignUpActivity.this, "Authentication failed.", Toast.LENGTH_SHORT).show();
                     }
                 });
     }
@@ -138,35 +104,106 @@ public class SignUpActivity extends AppCompatActivity {
         userMap.put("country", country);
         userMap.put("email", user.getEmail());
 
+        // Convert the Uri to a String representing the URL
+        String imageUrl = imageUri != null ? imageUri.toString() : "";
+
+        // Use a different key for the profile picture URL
+        userMap.put("profilePictureUrl", imageUrl);
+
         dbRef.child("users").child(user.getUid()).setValue(userMap)
                 .addOnCompleteListener(task -> {
                     if (task.isSuccessful()) {
-                        Log.d(TAG, "User data saved successfully");
+                        Toast.makeText(SignUpActivity.this, "User data saved", Toast.LENGTH_SHORT).show();
+                        if (imageUri != null) {
+                            uploadImage(user.getUid(), imageUri);
+                        } else {
+                            navigateToHome();
+                        }
                     } else {
-                        Log.w(TAG, "Error saving user data", task.getException());
+                        Toast.makeText(SignUpActivity.this, "Failed to save user data", Toast.LENGTH_SHORT).show();
                     }
                 });
     }
 
-    private void saveUserToRealtimeDatabase(FirebaseUser user, String username, String city, String country, String profilePictureUrl, String givenName, String familyName, String googleId) {
-        Map<String, Object> userMap = new HashMap<>();
-        userMap.put("uid", user.getUid());
-        userMap.put("username", username);
-        userMap.put("city", city);
-        userMap.put("country", country);
-        userMap.put("email", user.getEmail());
-        userMap.put("profilePictureUrl", profilePictureUrl);
-        userMap.put("givenName", givenName);
-        userMap.put("familyName", familyName);
-        userMap.put("googleId", googleId);
+    private void uploadImage(String userId, Uri imageUri) {
+        if (imageUri == null) {
+            Toast.makeText(this, "No image selected", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        else{
+            FirebaseFirestore db = FirebaseFirestore.getInstance();
 
-        dbRef.child("users").child(user.getUid()).setValue(userMap)
+            Map<String, Object> ProfilePic = new HashMap<>();
+            ProfilePic.put("ProfilePic", imageUri);
+
+
+            db.collection("users").document("PROFILE_PIC")
+                    .set(ProfilePic)
+                    .addOnSuccessListener(new OnSuccessListener<Void> () {
+                        @Override
+                        public void onSuccess(Void aVoid) {
+                            Log.d(TAG, "DocumentSnapshot successfully written!");
+                        }
+                    })
+                    .addOnFailureListener(new OnFailureListener () {
+                        @Override
+                        public void onFailure(@NonNull Exception e) {
+                            Log.w(TAG, "Error writing document", e);
+                        }
+                    });
+
+//            StorageReference storageRef = FirebaseStorage.getInstance().getReference();
+//            StorageReference userImageRef = storageRef.child("users/" + userId + "/profilePic.jpg");
+//
+//            userImageRef.putFile(imageUri)
+//                    .addOnSuccessListener(taskSnapshot -> {
+//                        userImageRef.getDownloadUrl().addOnSuccessListener(uri -> {
+//                            String imageUrl = uri.toString();
+//                            saveImageUrlToDatabase(userId, imageUrl);
+//                        }).addOnFailureListener(e -> {
+//                            Log.e("Firebase", "Error retrieving image URL: " + e.getMessage());
+//                            Toast.makeText(this, "Error retrieving image URL", Toast.LENGTH_SHORT).show();
+//                        });
+//                    }).addOnFailureListener(e -> {
+//                        Log.e("Firebase", "Failed to upload image: " + e.getMessage());
+//                        Log.e("Firebase", "Image URI: " + imageUri.toString());
+//                        Toast.makeText(this, "Failed to upload image", Toast.LENGTH_SHORT).show();
+//                    });
+
+        }
+
+    }
+
+    private void saveImageUrlToDatabase(String userId, String imageUrl) {
+        DatabaseReference databaseRef = FirebaseDatabase.getInstance().getReference();
+        databaseRef.child("users").child(userId).child("profilePicUrl").setValue(imageUrl)
                 .addOnCompleteListener(task -> {
                     if (task.isSuccessful()) {
-                        Log.d(TAG, "User data saved successfully");
-                    } else {
-                        Log.w(TAG, "Error saving user data", task.getException());
+                        Toast.makeText(this, "Image uploaded successfully", Toast.LENGTH_SHORT).show();
+                        navigateToHome();
                     }
+                }).addOnFailureListener(e -> {
+                    Log.e("Firebase", "Error saving image URL to database: " + e.getMessage());
+                    Toast.makeText(this, "Failed to save image URL", Toast.LENGTH_SHORT).show();
                 });
+    }
+
+    private void navigateToHome() {
+        Intent intent = new Intent(SignUpActivity.this, HomeActivity.class);
+        startActivity(intent);
+        finish();
+    }
+
+    public void getImageUrl() {
+        FirebaseStorage storage = FirebaseStorage.getInstance();
+        StorageReference storageRef = storage.getReference();
+        StorageReference profilePicRef = storageRef.child("users/" + FirebaseAuth.getInstance().getCurrentUser().getUid() + "/profilePic.jpg");
+
+        profilePicRef.getDownloadUrl().addOnSuccessListener(uri -> {
+            String imageUrl = uri.toString();
+            Picasso.get().load(imageUrl).into(binding.profileImage);
+        }).addOnFailureListener(e -> {
+            Log.e("Firebase", "Error retrieving image URL: " + e.getMessage());
+        });
     }
 }

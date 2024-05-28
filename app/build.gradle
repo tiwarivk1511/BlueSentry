@@ -41,6 +41,8 @@ dependencies {
     implementation libs.constraintlayout
     implementation libs.firebase.auth
     implementation libs.firebase.database
+    implementation libs.firebase.storage
+    implementation libs.firebase.firestore
     testImplementation libs.junit
     androidTestImplementation libs.ext.junit
     androidTestImplementation libs.espresso.core
@@ -57,4 +59,10 @@ dependencies {
 
     // Also add the dependency for the Google Play services library and specify its version
     implementation(libs.play.services.auth)
+
+    //add the dependency of circle image view
+    implementation libs.circleimageview
+
+    //add dependency of picasso
+    implementation 'com.squareup.picasso:picasso:2.8'
 }

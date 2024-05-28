@@ -9,8 +9,11 @@ import androidx.core.graphics.Insets;
 import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
 
+import com.google.firebase.FirebaseApp;
+
 public class MainActivity extends AppCompatActivity {
 
+    FirebaseApp firebaseApp;
     @Override
     protected void onCreate (Bundle savedInstanceState) {
         super.onCreate (savedInstanceState);
@@ -21,6 +24,9 @@ public class MainActivity extends AppCompatActivity {
             v.setPadding (systemBars.left, systemBars.top, systemBars.right, systemBars.bottom);
             return insets;
         });
+
+        // initialize firebase
+        firebaseApp = FirebaseApp.initializeApp (this);
 
         // start the Home activity after 3 seconds
         new android.os.Handler ().postDelayed (() -> {

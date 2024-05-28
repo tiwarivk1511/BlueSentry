@@ -92,6 +92,15 @@ public class HomeActivity extends AppCompatActivity {
         // Check Bluetooth status
         checkBluetoothStatus();
 
+        ImageView profileBtn = findViewById (R.id.profileImageView);
+        profileBtn.setOnClickListener (new View.OnClickListener () {
+            @Override
+            public void onClick (View v) {
+                Intent intent = new Intent (HomeActivity.this, ProfileActivity.class);
+                startActivity (intent);
+            }
+        });
+
         ImageView logoutBtn = findViewById (R.id.logoutButton);
         logoutBtn.setOnClickListener(new View.OnClickListener() {
                                          @Override
