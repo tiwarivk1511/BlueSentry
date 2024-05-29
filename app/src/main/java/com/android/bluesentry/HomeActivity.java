@@ -29,13 +29,10 @@ import androidx.core.graphics.Insets;
 import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
 import androidx.core.view.WindowInsetsControllerCompat;
-import androidx.fragment.app.strictmode.FragmentStrictMode;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.google.firebase.auth.FirebaseAuth;
-
-import org.chromium.net.httpflags.Flags;
 
 import java.io.IOException;
 import java.io.OutputStream;
@@ -78,8 +75,8 @@ public class HomeActivity extends AppCompatActivity {
         });
 
         // integrate the Background service
-        BackgroundService backgroundService = new BackgroundService();
-        backgroundService.onStartCommand (new Intent(this, BackgroundService.class), Service.START_FLAG_REDELIVERY, 0);
+//        BackgroundService backgroundService = new BackgroundService();
+//        backgroundService.onStartCommand (new Intent(this, BackgroundService.class), Service.START_FLAG_REDELIVERY, 0);
 
         WindowInsetsControllerCompat windowInsetsController = ViewCompat.getWindowInsetsController(findViewById(R.id.main));
         assert windowInsetsController != null;
@@ -101,24 +98,18 @@ public class HomeActivity extends AppCompatActivity {
         checkBluetoothStatus();
 
         ImageView profileBtn = findViewById (R.id.profileImageView);
-        profileBtn.setOnClickListener (new View.OnClickListener () {
-            @Override
-            public void onClick (View v) {
-                Intent intent = new Intent (HomeActivity.this, ProfileActivity.class);
-                startActivity (intent);
-            }
+        profileBtn.setOnClickListener (v -> {
+            Intent intent = new Intent (HomeActivity.this, ProfileActivity.class);
+            startActivity (intent);
         });
 
         ImageView logoutBtn = findViewById (R.id.logoutButton);
-        logoutBtn.setOnClickListener(new View.OnClickListener() {
-                                         @Override
-                                         public void onClick (View v) {
-                                             FirebaseAuth.getInstance ().signOut ();
-                                             Intent intent = new Intent (HomeActivity.this, LoginActivity.class);
-                                             startActivity (intent);
-                                             finish ();
-                                         }
-                                     });
+        logoutBtn.setOnClickListener(v -> {
+            FirebaseAuth.getInstance ().signOut ();
+            Intent intent = new Intent (HomeActivity.this, LoginActivity.class);
+            startActivity (intent);
+            finish ();
+        });
         // Set the layout based on the device orientation
         if (getResources().getConfiguration().orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE) {
             setContentView(R.layout.activity_home_landscape);
@@ -154,6 +145,19 @@ public class HomeActivity extends AppCompatActivity {
         bluetoothConnectionReceiver = new BluetoothConnectionReceiver(this);
         IntentFilter filter = new IntentFilter(BluetoothAdapter.ACTION_CONNECTION_STATE_CHANGED);
         registerReceiver(bluetoothConnectionReceiver, filter);
+
+        // Start the BackgroundService
+        startBackgroundService();
+    }
+
+    private void startBackgroundService() {
+        Intent serviceIntent = new Intent(this, BackgroundService.class);
+        ContextCompat.startForegroundService(this, serviceIntent);
+    }
+
+    private void stopBackgroundService() {
+        Intent serviceIntent = new Intent(this, BackgroundService.class);
+        stopService(serviceIntent);
     }
 
     private void checkAndRequestPermissions() {
@@ -250,6 +254,7 @@ public class HomeActivity extends AppCompatActivity {
             mp.release();
             mp = null;
         }
+        stopBackgroundService();
     }
 
     public void playEmergencyBuzzer() {
