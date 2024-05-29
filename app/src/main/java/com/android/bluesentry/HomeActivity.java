@@ -73,6 +73,9 @@ public class HomeActivity extends AppCompatActivity {
             return insets;
         });
 
+        // intigrate the Background service
+        startService(new Intent(this, BackgroundService.class));
+
         WindowInsetsControllerCompat windowInsetsController = ViewCompat.getWindowInsetsController(findViewById(R.id.main));
         assert windowInsetsController != null;
         windowInsetsController.isAppearanceLightStatusBars();

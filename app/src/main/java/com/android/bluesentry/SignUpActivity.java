@@ -1,10 +1,12 @@
 package com.android.bluesentry;
 
+import android.app.ProgressDialog;
 import android.content.Intent;
+import android.graphics.Bitmap;
 import android.net.Uri;
 import android.os.Bundle;
+import android.provider.MediaStore;
 import android.util.Log;
-import android.view.View;
 import android.widget.Toast;
 
 import androidx.annotation.NonNull;
@@ -21,28 +23,35 @@ import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
 import com.google.firebase.database.DatabaseReference;
 import com.google.firebase.database.FirebaseDatabase;
-import com.google.firebase.firestore.FirebaseFirestore;
 import com.google.firebase.storage.FirebaseStorage;
+import com.google.firebase.storage.OnProgressListener;
 import com.google.firebase.storage.StorageReference;
-import com.squareup.picasso.Picasso;
+import com.google.firebase.storage.UploadTask;
 
+import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
 
 public class SignUpActivity extends AppCompatActivity {
-    private static final int RC_SIGN_IN = 9001;
     private static final String TAG = "SignupActivity";
     private Uri imageUri;
     private FirebaseAuth mAuth;
     private DatabaseReference dbRef;
     private ActivitySignUpBinding binding;
 
+    private static final int PICK_IMAGE_REQUEST = 1;
+    private Uri filePath;
+
+    FirebaseUser user;
+    private FirebaseStorage storage;
+    private StorageReference storageReference;
+
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         binding = ActivitySignUpBinding.inflate(getLayoutInflater());
         setContentView(binding.getRoot());
-        ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.main), (v, insets) -> {
+        ViewCompat.setOnApplyWindowInsetsListener(binding.main, (v, insets) -> {
             Insets systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars());
             v.setPadding(systemBars.left, systemBars.top, systemBars.right, systemBars.bottom);
             return insets;
@@ -50,24 +59,19 @@ public class SignUpActivity extends AppCompatActivity {
 
         mAuth = FirebaseAuth.getInstance();
         dbRef = FirebaseDatabase.getInstance().getReference();
+        storage = FirebaseStorage.getInstance();
+        storageReference = storage.getReference();
 
         binding.SignupButton.setOnClickListener(v -> performEmailSignup());
 
-        binding.uploadImage.setOnClickListener(v -> {
-            Intent intent = new Intent();
-            intent.setType("image/*");
-            intent.setAction(Intent.ACTION_GET_CONTENT);
-            startActivityForResult(intent, 1);
+        binding.backButton.setOnClickListener(v -> {
+            onBackPressed();
         });
-    }
 
-    @Override
-    protected void onActivityResult(int requestCode, int resultCode, @Nullable Intent data) {
-        super.onActivityResult(requestCode, resultCode, data);
-        if (requestCode == 1 && resultCode == RESULT_OK && data != null && data.getData() != null) {
-            imageUri = data.getData();
-            binding.profileImage.setImageURI(imageUri);
-        }
+        binding.uploadImage.setOnClickListener(v -> {
+            SelectImage();
+
+        });
     }
 
     private void performEmailSignup() {
@@ -85,9 +89,10 @@ public class SignUpActivity extends AppCompatActivity {
         mAuth.createUserWithEmailAndPassword(email, password)
                 .addOnCompleteListener(this, task -> {
                     if (task.isSuccessful()) {
-                        FirebaseUser user = mAuth.getCurrentUser();
+                        user = mAuth.getCurrentUser();
                         if (user != null) {
                             saveUserToRealtimeDatabase(user, username, city, country);
+                            uploadImage(user.getUid());
                         }
                     } else {
                         Log.w(TAG, "createUserWithEmail:failure", task.getException());
@@ -115,7 +120,7 @@ public class SignUpActivity extends AppCompatActivity {
                     if (task.isSuccessful()) {
                         Toast.makeText(SignUpActivity.this, "User data saved", Toast.LENGTH_SHORT).show();
                         if (imageUri != null) {
-                            uploadImage(user.getUid(), imageUri);
+                            SelectImage();
                         } else {
                             navigateToHome();
                         }
@@ -125,85 +130,136 @@ public class SignUpActivity extends AppCompatActivity {
                 });
     }
 
-    private void uploadImage(String userId, Uri imageUri) {
-        if (imageUri == null) {
-            Toast.makeText(this, "No image selected", Toast.LENGTH_SHORT).show();
-            return;
+    // Select Image method
+    private void SelectImage()
+    {
+
+        // Defining Implicit Intent to mobile gallery
+        Intent intent = new Intent();
+        intent.setType("image/*");
+        intent.setAction(Intent.ACTION_GET_CONTENT);
+        startActivityForResult(
+                Intent.createChooser(
+                        intent,
+                        "Select Image from here..."),
+                PICK_IMAGE_REQUEST);
+    }
+
+    // Override onActivityResult method
+    @Override
+    protected void onActivityResult(int requestCode,
+                                    int resultCode,
+                                    Intent data)
+    {
+
+        super.onActivityResult(requestCode,
+                resultCode,
+                data);
+
+        // checking request code and result code
+        // if request code is PICK_IMAGE_REQUEST and
+        // resultCode is RESULT_OK
+        // then set image in the image view
+        if (requestCode == PICK_IMAGE_REQUEST
+                && resultCode == RESULT_OK
+                && data != null
+                && data.getData() != null) {
+
+            // Get the Uri of data
+            filePath = data.getData();
+            try {
+
+                // Setting image on image view using Bitmap
+                Bitmap bitmap = MediaStore
+                        .Images
+                        .Media
+                        .getBitmap(
+                                getContentResolver(),
+                                filePath);
+                binding.profileImage.setImageBitmap(bitmap);
+
+            }
+
+            catch (IOException e) {
+                // Log the exception
+                e.printStackTrace();
+            }
         }
-        else{
-            FirebaseFirestore db = FirebaseFirestore.getInstance();
+    }
 
-            Map<String, Object> ProfilePic = new HashMap<>();
-            ProfilePic.put("ProfilePic", imageUri);
+    // UploadImage method
+    private void uploadImage(String userId)
+    {
+        if (filePath != null) {
 
+            // Code for showing progressDialog while uploading
+            ProgressDialog progressDialog
+                    = new ProgressDialog(this);
+            progressDialog.setTitle("Uploading...");
+            progressDialog.show();
 
-            db.collection("users").document("PROFILE_PIC")
-                    .set(ProfilePic)
-                    .addOnSuccessListener(new OnSuccessListener<Void> () {
-                        @Override
-                        public void onSuccess(Void aVoid) {
-                            Log.d(TAG, "DocumentSnapshot successfully written!");
-                        }
-                    })
+            // Defining the child of storageReference
+            StorageReference ref
+                    = storageReference
+                    .child(
+                            userId + "/images/"
+                                    + userId);
+
+            // adding listeners on upload
+            // or failure of image
+            ref.putFile(filePath)
+                    .addOnSuccessListener(
+                            new OnSuccessListener<UploadTask.TaskSnapshot> () {
+
+                                @Override
+                                public void onSuccess(
+                                        UploadTask.TaskSnapshot taskSnapshot)
+                                {
+                                    // Image uploaded successfully
+                                    // Dismiss dialog
+                                    progressDialog.dismiss();
+                                    Toast
+                                            .makeText(SignUpActivity.this,
+                                                    "Image Uploaded!!",
+                                                    Toast.LENGTH_SHORT)
+                                            .show();
+                                }
+                            })
+
                     .addOnFailureListener(new OnFailureListener () {
                         @Override
-                        public void onFailure(@NonNull Exception e) {
-                            Log.w(TAG, "Error writing document", e);
+                        public void onFailure(@NonNull Exception e)
+                        {
+
+                            // Error, Image not uploaded
+                            progressDialog.dismiss();
+                            Toast
+                                    .makeText(SignUpActivity.this,
+                                            "Failed " + e.getMessage(),
+                                            Toast.LENGTH_SHORT)
+                                    .show();
+                        }
+                    }).addOnProgressListener (new OnProgressListener<UploadTask.TaskSnapshot> () {
+                        @Override
+                        public void onProgress (@NonNull UploadTask.TaskSnapshot snapshot) {
+
+                            double progress
+                                    = (100.0
+                                    * snapshot.getBytesTransferred()
+                                    / snapshot.getTotalByteCount());
+                            progressDialog.setMessage
+                                    ("Uploaded "
+                                            + (int)progress + "%");
                         }
                     });
 
-//            StorageReference storageRef = FirebaseStorage.getInstance().getReference();
-//            StorageReference userImageRef = storageRef.child("users/" + userId + "/profilePic.jpg");
-//
-//            userImageRef.putFile(imageUri)
-//                    .addOnSuccessListener(taskSnapshot -> {
-//                        userImageRef.getDownloadUrl().addOnSuccessListener(uri -> {
-//                            String imageUrl = uri.toString();
-//                            saveImageUrlToDatabase(userId, imageUrl);
-//                        }).addOnFailureListener(e -> {
-//                            Log.e("Firebase", "Error retrieving image URL: " + e.getMessage());
-//                            Toast.makeText(this, "Error retrieving image URL", Toast.LENGTH_SHORT).show();
-//                        });
-//                    }).addOnFailureListener(e -> {
-//                        Log.e("Firebase", "Failed to upload image: " + e.getMessage());
-//                        Log.e("Firebase", "Image URI: " + imageUri.toString());
-//                        Toast.makeText(this, "Failed to upload image", Toast.LENGTH_SHORT).show();
-//                    });
-
         }
-
     }
 
-    private void saveImageUrlToDatabase(String userId, String imageUrl) {
-        DatabaseReference databaseRef = FirebaseDatabase.getInstance().getReference();
-        databaseRef.child("users").child(userId).child("profilePicUrl").setValue(imageUrl)
-                .addOnCompleteListener(task -> {
-                    if (task.isSuccessful()) {
-                        Toast.makeText(this, "Image uploaded successfully", Toast.LENGTH_SHORT).show();
-                        navigateToHome();
-                    }
-                }).addOnFailureListener(e -> {
-                    Log.e("Firebase", "Error saving image URL to database: " + e.getMessage());
-                    Toast.makeText(this, "Failed to save image URL", Toast.LENGTH_SHORT).show();
-                });
-    }
 
     private void navigateToHome() {
         Intent intent = new Intent(SignUpActivity.this, HomeActivity.class);
         startActivity(intent);
         finish();
-    }
-
-    public void getImageUrl() {
-        FirebaseStorage storage = FirebaseStorage.getInstance();
-        StorageReference storageRef = storage.getReference();
-        StorageReference profilePicRef = storageRef.child("users/" + FirebaseAuth.getInstance().getCurrentUser().getUid() + "/profilePic.jpg");
-
-        profilePicRef.getDownloadUrl().addOnSuccessListener(uri -> {
-            String imageUrl = uri.toString();
-            Picasso.get().load(imageUrl).into(binding.profileImage);
-        }).addOnFailureListener(e -> {
-            Log.e("Firebase", "Error retrieving image URL: " + e.getMessage());
-        });
     }
 }

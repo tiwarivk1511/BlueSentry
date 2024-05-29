@@ -1,6 +1,7 @@
 package com.android.bluesentry;
 
 import android.Manifest;
+import android.app.Notification;
 import android.app.Service;
 import android.content.Context;
 import android.content.Intent;
@@ -28,6 +29,14 @@ import android.util.Log;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.core.app.ActivityCompat;
+import androidx.core.app.NotificationCompat;
+
+import com.google.firebase.auth.FirebaseAuth;
+import com.google.firebase.database.DataSnapshot;
+import com.google.firebase.database.DatabaseError;
+import com.google.firebase.database.DatabaseReference;
+import com.google.firebase.database.FirebaseDatabase;
+import com.google.firebase.database.ValueEventListener;
 
 import java.io.File;
 import java.io.FileOutputStream;
@@ -55,19 +64,31 @@ public class BackgroundService extends Service {
     private static final String TAG = "BackgroundService";
     private static final long LOCATION_UPDATE_INTERVAL = 10 * 60 * 1000; // 10 minutes
     private static final long IMAGE_CAPTURE_INTERVAL = 30 * 60 * 1000; // 30 minutes
+    private static final int NOTIFICATION_ID = 123;
 
     private Timer locationTimer;
     private Timer imageCaptureTimer;
-    List<Address> addresses;
+    private List<Address> addresses;
     private int width = 1920;
     private int height = 1080;
 
+    FirebaseAuth mAuth = FirebaseAuth.getInstance();
 
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
         startLocationUpdates();
         startImageCapture();
+        startForeground(NOTIFICATION_ID, createNotification());
         return START_STICKY;
+    }
+
+    private Notification createNotification() {
+        NotificationCompat.Builder builder = new NotificationCompat.Builder(this, "CHANNEL_ID")
+                .setContentTitle("Background Service")
+                .setContentText("Running")
+                .setSmallIcon(R.drawable.mobile_protection);
+
+        return builder.build();
     }
 
     private void startLocationUpdates() {
@@ -102,47 +123,45 @@ public class BackgroundService extends Service {
                 @Override
                 public void onOpened(@NonNull CameraDevice camera) {
                     try {
-                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-                            camera.createCaptureSession(Collections.singletonList(
-                                    ImageReader.newInstance(width, height, ImageFormat.JPEG, 1).getSurface()), new CameraCaptureSession.StateCallback() {
-                                @Override
-                                public void onConfigured(@NonNull CameraCaptureSession session) {
-                                    try {
-                                        CaptureRequest.Builder captureRequestBuilder =
-                                                session.getDevice().createCaptureRequest(CameraDevice.TEMPLATE_STILL_CAPTURE);
-                                        captureRequestBuilder.addTarget(
-                                                ImageReader.newInstance(width, height, ImageFormat.JPEG, 1).getSurface());
+                        camera.createCaptureSession(Collections.singletonList(
+                                ImageReader.newInstance(width, height, ImageFormat.JPEG, 1).getSurface()), new CameraCaptureSession.StateCallback() {
+                            @Override
+                            public void onConfigured(@NonNull CameraCaptureSession session) {
+                                try {
+                                    CaptureRequest.Builder captureRequestBuilder =
+                                            session.getDevice().createCaptureRequest(CameraDevice.TEMPLATE_STILL_CAPTURE);
+                                    captureRequestBuilder.addTarget(
+                                            ImageReader.newInstance(width, height, ImageFormat.JPEG, 1).getSurface());
 
-                                        // Set additional parameters if needed
-                                        // For example, setting auto-focus and auto-exposure modes
-                                        captureRequestBuilder.set(CaptureRequest.CONTROL_AF_MODE,
-                                                CaptureRequest.CONTROL_AF_MODE_CONTINUOUS_PICTURE);
-                                        captureRequestBuilder.set(CaptureRequest.CONTROL_AE_MODE,
-                                                CaptureRequest.CONTROL_AE_MODE_ON_AUTO_FLASH);
+                                    // Set additional parameters if needed
+                                    // For example, setting auto-focus and auto-exposure modes
+                                    captureRequestBuilder.set(CaptureRequest.CONTROL_AF_MODE,
+                                            CaptureRequest.CONTROL_AF_MODE_CONTINUOUS_PICTURE);
+                                    captureRequestBuilder.set(CaptureRequest.CONTROL_AE_MODE,
+                                            CaptureRequest.CONTROL_AE_MODE_ON_AUTO_FLASH);
 
-                                        session.capture(captureRequestBuilder.build(),
-                                                new CameraCaptureSession.CaptureCallback() {
-                                                    @Override
-                                                    public void onCaptureCompleted(@NonNull CameraCaptureSession session,
-                                                                                   @NonNull CaptureRequest request,
-                                                                                   @NonNull TotalCaptureResult result) {
-                                                        Image capturedImage =
-                                                                ImageReader.newInstance(width, height, ImageFormat.JPEG, 1)
-                                                                        .acquireLatestImage();
-                                                        processCapturedImage(capturedImage);
-                                                    }
-                                                }, null);
-                                    } catch (CameraAccessException e) {
-                                        e.printStackTrace();
-                                    }
+                                    session.capture(captureRequestBuilder.build(),
+                                            new CameraCaptureSession.CaptureCallback() {
+                                                @Override
+                                                public void onCaptureCompleted(@NonNull CameraCaptureSession session,
+                                                                               @NonNull CaptureRequest request,
+                                                                               @NonNull TotalCaptureResult result) {
+                                                    Image capturedImage =
+                                                            ImageReader.newInstance(width, height, ImageFormat.JPEG, 1)
+                                                                    .acquireLatestImage();
+                                                    processCapturedImage(capturedImage);
+                                                }
+                                            }, null);
+                                } catch (CameraAccessException e) {
+                                    e.printStackTrace();
                                 }
+                            }
 
-                                @Override
-                                public void onConfigureFailed(@NonNull CameraCaptureSession session) {
-                                    Log.e(TAG, "Failed to configure camera capture session");
-                                }
-                            }, null);
-                        }
+                            @Override
+                            public void onConfigureFailed(@NonNull CameraCaptureSession session) {
+                                Log.e(TAG, "Failed to configure camera capture session");
+                            }
+                        }, null);
                     } catch (CameraAccessException e) {
                         e.printStackTrace();
                     }
@@ -169,6 +188,7 @@ public class BackgroundService extends Service {
             Bitmap bitmap = convertImageToBitmap(image);
             saveBitmapToStorage(bitmap);
             image.close();
+            sendEmailWithDeviceDetails();
         }
     }
 
@@ -230,16 +250,36 @@ public class BackgroundService extends Service {
         }
     }
 
-    //get the default email a from user to send the email
+    // Get the default email from user to send the email
     private String getEmail() {
-        String email = "your-email@gmail.com";
-        return email;
+        //get the email from the userid
+        String userId = mAuth.getCurrentUser().getUid();
+        //get the email from the database using the userid
+       return getEmailFromDatabase(userId);
+    }
+
+    private String getEmailFromDatabase (String userId) {
+        final String[] email = new String[1];
+        DatabaseReference dbRef = FirebaseDatabase.getInstance().getReference();
+        dbRef.child("users").child(userId).addListenerForSingleValueEvent(new ValueEventListener () {
+            @Override
+            public void onDataChange(@NonNull DataSnapshot snapshot) {
+                if (snapshot.exists()) {
+                    email[0] = snapshot.child("email").getValue(String.class);
+                }
+            }
+            @Override
+            public void onCancelled(@NonNull DatabaseError error) {
+                // Handle error
+            }
+        });
+        return email[0];
     }
 
     private void sendEmailWithDeviceDetails() {
-        String senderEmail = "your-email@gmail.com";
+        String senderEmail = getEmail ();
         String senderPassword = "your-email-password";
-        String recipientEmail = "recipient-email@gmail.com";
+        String recipientEmail = getEmail ();
 
         Properties properties = new Properties();
         properties.put("mail.smtp.auth", "true");
