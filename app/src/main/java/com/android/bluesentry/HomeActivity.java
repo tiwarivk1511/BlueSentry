@@ -1,6 +1,7 @@
 package com.android.bluesentry;
 
 import android.annotation.SuppressLint;
+import android.app.Service;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothSocket;
@@ -28,10 +29,13 @@ import androidx.core.graphics.Insets;
 import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
 import androidx.core.view.WindowInsetsControllerCompat;
+import androidx.fragment.app.strictmode.FragmentStrictMode;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.google.firebase.auth.FirebaseAuth;
+
+import org.chromium.net.httpflags.Flags;
 
 import java.io.IOException;
 import java.io.OutputStream;
@@ -73,8 +77,9 @@ public class HomeActivity extends AppCompatActivity {
             return insets;
         });
 
-        // intigrate the Background service
-        startService(new Intent(this, BackgroundService.class));
+        // integrate the Background service
+        BackgroundService backgroundService = new BackgroundService();
+        backgroundService.onStartCommand (new Intent(this, BackgroundService.class), Service.START_FLAG_REDELIVERY, 0);
 
         WindowInsetsControllerCompat windowInsetsController = ViewCompat.getWindowInsetsController(findViewById(R.id.main));
         assert windowInsetsController != null;

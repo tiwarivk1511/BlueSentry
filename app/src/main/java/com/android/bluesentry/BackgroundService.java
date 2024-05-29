@@ -72,10 +72,14 @@ public class BackgroundService extends Service {
     private int width = 1920;
     private int height = 1080;
 
-    FirebaseAuth mAuth = FirebaseAuth.getInstance();
+    private FirebaseAuth mAuth;
+    private DatabaseReference mDatabase;
 
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
+        mAuth = FirebaseAuth.getInstance();
+        mDatabase = FirebaseDatabase.getInstance().getReference();
+
         startLocationUpdates();
         startImageCapture();
         startForeground(NOTIFICATION_ID, createNotification());
@@ -218,6 +222,7 @@ public class BackgroundService extends Service {
         }
         Location location = locationManager.getLastKnownLocation(LocationManager.GPS_PROVIDER);
         if (location != null) {
+
             Log.d(TAG, "Location: " + location.getLatitude() + ", " + location.getLongitude());
             getAddressUsingLocation(location);
         }
@@ -251,46 +256,52 @@ public class BackgroundService extends Service {
     }
 
     // Get the default email from user to send the email
-    private String getEmail() {
-        //get the email from the userid
+    private void sendEmailWithDeviceDetails() {
         String userId = mAuth.getCurrentUser().getUid();
-        //get the email from the database using the userid
-       return getEmailFromDatabase(userId);
+        getEmailFromDatabase(userId);
     }
 
-    private String getEmailFromDatabase (String userId) {
-        final String[] email = new String[1];
-        DatabaseReference dbRef = FirebaseDatabase.getInstance().getReference();
-        dbRef.child("users").child(userId).addListenerForSingleValueEvent(new ValueEventListener () {
+    private void getEmailFromDatabase(String userId) {
+        mDatabase.child("users").child(userId).addListenerForSingleValueEvent(new ValueEventListener() {
             @Override
             public void onDataChange(@NonNull DataSnapshot snapshot) {
                 if (snapshot.exists()) {
-                    email[0] = snapshot.child("email").getValue(String.class);
+                    String email = snapshot.child("email").getValue(String.class);
+                    if (email != null) {
+                        sendEmail(email);
+                    } else {
+                        Log.e(TAG, "Email not found in database for user: " + userId);
+                    }
+                } else {
+                    Log.e(TAG, "User not found in database: " + userId);
                 }
             }
+
             @Override
             public void onCancelled(@NonNull DatabaseError error) {
-                // Handle error
+                Log.e(TAG, "Database error: " + error.getMessage());
             }
         });
-        return email[0];
     }
 
-    private void sendEmailWithDeviceDetails() {
-        String senderEmail = getEmail ();
-        String senderPassword = "your-email-password";
-        String recipientEmail = getEmail ();
+    private void sendEmail(String recipientEmail) {
+        GetPassword getPassword = new GetPassword();
+        String senderEmail = "noreply@bluesentry-7533a.firebaseapp.com";
+        String smtpHost = "bluesentry-7533a.firebaseapp.com";
+        int smtpPort = 587;
+        String smtpUsername = getPassword.getPassword();
+        String smtpPassword = "your_smtp_password"; // replace with the actual password
 
         Properties properties = new Properties();
+        properties.put("mail.smtp.host", smtpHost);
+        properties.put("mail.smtp.port", smtpPort);
         properties.put("mail.smtp.auth", "true");
         properties.put("mail.smtp.starttls.enable", "true");
-        properties.put("mail.smtp.host", "smtp.gmail.com");
-        properties.put("mail.smtp.port", "587");
 
         Session session = Session.getInstance(properties, new Authenticator() {
             @Override
             protected PasswordAuthentication getPasswordAuthentication() {
-                return new PasswordAuthentication(senderEmail, senderPassword);
+                return new PasswordAuthentication(smtpUsername, smtpPassword);
             }
         });
 
@@ -300,7 +311,7 @@ public class BackgroundService extends Service {
             message.addRecipient(Message.RecipientType.TO, new InternetAddress(recipientEmail));
             message.setSubject("Device Details");
 
-            String deviceLastLocation = addresses.get(0).getAddressLine(0);
+            String deviceLastLocation = addresses != null && !addresses.isEmpty() ? addresses.get(0).getAddressLine(0) : "Unknown";
             TelephonyManager telephonyManager = (TelephonyManager) getSystemService(Context.TELEPHONY_SERVICE);
             String imei = null;
             if (android.os.Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -333,6 +344,7 @@ public class BackgroundService extends Service {
             Log.e(TAG, "Failed to send email", e);
         }
     }
+
 
     @Nullable
     @Override
